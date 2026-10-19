@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <meta name="description" content="Neon Snake 霓虹貪食蛇：支援鍵盤與手機方向按鈕、逐漸加速與最高分紀錄。">
+  <title>Neon Snake｜霓虹貪食蛇</title>
+  <style>
+    /* 視覺基礎：深色街機、霓虹配色與清楚的焦點狀態 */
+    :root { color-scheme: dark; --bg:#080d18; --panel:#111a2a; --line:#29364d; --text:#edf4ff; --muted:#a5b4cc; --mint:#61ffd0; --pink:#ff7cce; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 15% 0%,#153039 0,transparent 48%),radial-gradient(ellipse at 100% 80%,#28172e 0,transparent 45%),var(--bg); color:var(--text); font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    button { font:inherit; touch-action:manipulation; }
+    button:focus-visible,summary:focus-visible { outline:3px solid var(--mint); outline-offset:5px; }
+    .shell { width:min(1100px,100%); margin:auto; padding:36px 24px; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:20px; padding-bottom:26px; }
+    .eyebrow { margin:0 0 5px; color:var(--mint); font-size:12px; font-weight:750; letter-spacing:.2em; }
+    h1 { margin:0; font-size:clamp(32px,6vw,54px); line-height:1.1; letter-spacing:-.04em; }
+    h1 span { color:var(--mint); text-shadow:0 0 24px #61ffd040; }
+    .badge { padding:7px 13px; border:1px solid #53604e; border-radius:99px; color:#e4edbd; font-size:13px; white-space:nowrap; }
+    .intro { color:var(--muted); margin:0 0 24px; }
+    .layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:24px; align-items:start; }
+    .panel { border:1px solid var(--line); background:#111a2ae8; border-radius:20px; }
+    .arena { padding:22px; }
+    .arena-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px; font-size:13px; color:var(--muted); }
+    .status { color:var(--mint); }
+    .board { position:relative; overflow:hidden; border:1px solid #3e776b; border-radius:10px; background:#080f19; box-shadow:0 0 32px #61ffd00b; }
+    canvas { display:block; width:100%; height:auto; aspect-ratio:1; }
+    .board-label { position:absolute; inset:0; display:grid; place-content:center; text-align:center; pointer-events:none; padding:20px; }
+    .board-label div { padding:20px 25px; border:1px solid #39534f; border-radius:12px; background:#080f19ed; }
+    .board-label strong { display:block; color:var(--mint); font-size:22px; letter-spacing:.08em; }
+    .board-label p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    .actions { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:18px; }
+    .actions button:not(:disabled) { cursor:pointer; color:var(--mint); border-color:#438b78; background:#19372f; }
+    .actions button { padding:11px 4px; border:1px solid #3b465a; border-radius:9px; background:#1b2536; color:#a8b4c8; }
+    button:disabled { cursor:not-allowed; }
+    .hint { margin:12px 0 0; color:var(--muted); font-size:12px; }
+    aside { display:grid; gap:16px; }
+    .stats { display:grid; grid-template-columns:1fr 1fr; gap:1px; overflow:hidden; background:var(--line); }
+    .stat { background:var(--panel); padding:18px; }
+    .stat p { margin:0; color:var(--muted); font-size:12px; }
+    .value { display:block; font-size:34px; line-height:1.35; font-variant-numeric:tabular-nums; }
+    .stat:first-child .value { color:var(--mint); }
+    .stat:last-child .value { color:var(--pink); }
+    .small { font-size:11px; color:var(--muted); }
+    .info,.controls { padding:20px; }
+    h2 { font-size:14px; margin:0 0 12px; letter-spacing:.05em; }
+    .info-row { display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:7px 0; color:var(--muted); }
+    .info-row strong { color:var(--text); font-weight:500; }
+    .info-row + .info-row { border-top:1px solid var(--line); }
+    .control-copy { font-size:12px; color:var(--muted); margin:0; }
+    .dpad { display:grid; grid-template-columns:repeat(3,60px); grid-template-rows:repeat(2,56px); justify-content:center; gap:8px; margin:18px 0; }
+    .direction { border:1px solid #42536d; border-radius:10px; background:#1b2940; color:var(--text); font-size:23px; cursor:pointer; }
+    .direction:hover { border-color:var(--mint); }
+    .direction[aria-pressed="true"] { background:#193f3a; border-color:var(--mint); color:var(--mint); box-shadow:0 0 14px #61ffd01a; }
+    .direction[data-direction="up"] { grid-column:2; }
+    .direction[data-direction="left"] { grid-column:1; grid-row:2; }
+    .direction[data-direction="down"] { grid-column:2; grid-row:2; }
+    .direction[data-direction="right"] { grid-column:3; grid-row:2; }
+    .input-status { margin:0; text-align:center; font-size:13px; color:var(--mint); }
+    details { margin-top:24px; padding:16px 20px; color:var(--muted); font-size:13px; }
+    summary { cursor:pointer; color:var(--text); }
+    details ol { padding-left:22px; margin-bottom:0; }
+    footer { display:flex; justify-content:space-between; gap:12px; margin-top:22px; color:var(--muted); font-size:11px; letter-spacing:.05em; }
+    @media (max-width:760px) { .layout { grid-template-columns:1fr; } aside { grid-template-columns:1fr 1fr; } .stats { grid-column:1 / -1; } .shell { padding:24px 16px; } }
+    @media (max-width:440px) { header { align-items:flex-start; flex-direction:column; gap:14px; } .arena { padding:14px; } aside { grid-template-columns:1fr; } .stats { grid-column:auto; } footer { flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><p class="eyebrow">ARCADE LAB / 001</p><h1>NEON <span>SNAKE</span></h1></div>
+      <span class="badge">NEON ARCADE · 標準版</span>
+    </header>
+    <p class="intro">吃下霓虹食物，讓蛇成長。每顆食物得 10 分；避開牆壁與自己的身體。</p>
+    <div class="layout">
+      <section class="arena panel" aria-label="遊戲棋盤與按鈕">
+        <div class="arena-head"><span>20 × 20 / GRID</span><span class="status">● 等待開始</span></div>
+        <div class="board">
+          <canvas id="board" width="600" height="600" role="img" aria-label="20 乘 20 貪食蛇棋盤；請透過方向鍵或畫面方向按鈕控制">20 × 20 空白棋盤。您的瀏覽器不支援 Canvas。</canvas>
+          <div class="board-label"><div><strong>準備出發</strong><p>按下開始，展開你的霓虹旅程</p></div></div>
+        </div>
+        <!-- 由遊戲狀態同步按鈕，避免重複啟動計時器 -->
+        <div class="actions" aria-describedby="action-note">
+          <button id="start" type="button">開始</button><button id="pause" type="button" disabled>暫停</button><button id="restart" type="button" disabled>重玩</button>
+        </div>
+        <p id="action-note" class="hint">每吃一顆加快 5 毫秒，最快 70 毫秒／格。切換分頁時會自動暫停。</p>
+      </section>
+      <aside aria-label="遊戲資訊及控制">
+        <section class="stats panel" aria-label="分數面板">
+          <div class="stat"><p>分數 / SCORE</p><span id="score" class="value">0</span><span class="small">每顆食物 +10</span></div>
+          <div class="stat"><p>最高分 / BEST</p><span id="best" class="value">0</span><span id="storage-note" class="small">儲存於此瀏覽器</span></div>
+        </section>
+        <section class="info panel">
+          <h2>遊戲設定</h2>
+          <div class="info-row"><span>棋盤</span><strong>20 × 20</strong></div>
+          <div class="info-row"><span>速度機制</span><strong>吃食物逐漸加速</strong></div>
+          <div class="info-row"><span>目前速度</span><strong id="speed">160 毫秒／格</strong></div>
+          <p class="hint">初速 160 毫秒／格，最低 70 毫秒／格；重玩時重設速度，保留最高分。</p>
+        </section>
+        <section class="controls panel" aria-labelledby="controls-title">
+          <h2 id="controls-title">方向控制</h2>
+          <p class="control-copy">桌面：方向鍵或 W A S D。<br>手機：點選下方方向按鈕。遊戲中無法直接反向。</p>
+          <div class="dpad" role="group" aria-label="方向控制按鈕">
+            <button class="direction" type="button" data-direction="up" aria-label="向上" aria-pressed="false">↑</button>
+            <button class="direction" type="button" data-direction="left" aria-label="向左" aria-pressed="false">←</button>
+            <button class="direction" type="button" data-direction="down" aria-label="向下" aria-pressed="false">↓</button>
+            <button class="direction" type="button" data-direction="right" aria-label="向右" aria-pressed="false">→</button>
+          </div>
+          <p id="input-status" class="input-status" role="status" aria-live="polite">等待方向輸入</p>
+        </section>
+      </aside>
+    </div>
+    <details class="panel">
+      <summary>玩法與紀錄說明</summary>
+      <ol><li>按開始後，用方向鍵、WASD 或畫面方向按鈕控制；不能直接反向。</li><li>每顆食物加 10 分並加快 5 毫秒，最快 70 毫秒／格。撞牆或撞到身體即結束。</li><li>暫停後可繼續；重玩會重設分數與速度。切換分頁會自動暫停。</li><li>最高分保存在目前瀏覽器與網站來源，不會跨裝置同步。清除網站資料會移除紀錄；儲存受限時僅保留本頁紀錄。</li></ol>
+    </details>
+    <footer><span>NEON SNAKE · 單檔靜態網頁</span><span>HTML / CSS / JAVASCRIPT</span></footer>
+  </main>
+  <script>
+    'use strict';
+    // 遊戲資料：吃食物逐漸加速，最高分與逐漸加速留待後續加入。
+    const GRID_SIZE = 20;
+    const START_MS = 160;
+    const MIN_MS = 70;
+    const SPEED_STEP = 5;
+    const BEST_KEY = 'neon-snake-best-v1';
+    let best = 0;
+    let storageAvailable = true;
+    // 儲存可能被瀏覽器封鎖；失敗時保留本次頁面的最高分，遊戲繼續運作。
+    try {
+      const saved = localStorage.getItem(BEST_KEY);
+      const parsed = Number(saved);
+      if (saved !== null && Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= 3970 && parsed % 10 === 0) best = parsed;
+    } catch { storageAvailable = false; }
+    function renderBest() {
+      document.getElementById('best').textContent = best;
+      document.getElementById('storage-note').textContent = storageAvailable ? '儲存於此瀏覽器' : '儲存不可用，僅保留本頁紀錄';
+    }
+    function updateBest() {
+      if (score <= best) return;
+      best = score;
+      if (storageAvailable) {
+        try { localStorage.setItem(BEST_KEY, String(best)); }
+        catch { storageAvailable = false; }
+      }
+      renderBest();
+    }
+    function currentInterval() { return Math.max(MIN_MS, START_MS - (score / 10) * SPEED_STEP); }
+    function renderSpeed() { document.getElementById('speed').textContent = `${currentInterval()} 毫秒／格`; }
+    // 變速時先清除舊計時器；暫停與繼續沿用目前分數對應的速度。
+    function scheduleTicks() {
+      stopTimer();
+      timer = setInterval(tick, currentInterval());
+    }
+    const canvas = document.getElementById('board');
+    const context = canvas.getContext('2d');
+    const startButton = document.getElementById('start');
+    const pauseButton = document.getElementById('pause');
+    const restartButton = document.getElementById('restart');
+    const overlay = document.querySelector('.board-label');
+    const directionButtons = Array.from(document.querySelectorAll('.direction'));
+    const vectors = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+    const names = { up:'上 ↑', down:'下 ↓', left:'左 ←', right:'右 →' };
+    const keys = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', w:'up', s:'down', a:'left', d:'right' };
+    let snake, food, score, direction, pendingDirection, state = 'ready', timer = null;
+
+    // 將畫面與狀態集中同步；暫停與結束都確實停止計時器。
+    function stopTimer() { clearInterval(timer); timer = null; }
+    function setState(next, title = '', message = '') {
+      state = next;
+      if (state !== 'running') stopTimer();
+      startButton.disabled = state !== 'ready';
+      pauseButton.disabled = !['running','paused'].includes(state);
+      pauseButton.textContent = state === 'paused' ? '繼續' : '暫停';
+      restartButton.disabled = state === 'ready';
+      directionButtons.forEach(button => { button.disabled = state !== 'running'; });
+      document.querySelector('.status').textContent = {ready:'● 等待開始',running:'● 遊戲中',paused:'● 已暫停',over:'● 遊戲結束'}[state];
+      overlay.style.display = state === 'running' ? 'none' : 'grid';
+      overlay.querySelector('strong').textContent = title;
+      overlay.querySelector('p').textContent = message;
+      document.getElementById('input-status').textContent = state === 'running' ? `目前方向：向${names[direction]}` : '開始或繼續後即可控制方向';
+    }
+    function resetGame() {
+      stopTimer();
+      snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+      direction = pendingDirection = 'right';
+      score = 0;
+      renderSpeed();
+      document.getElementById('score').textContent = score;
+      directionButtons.forEach(button => button.setAttribute('aria-pressed','false'));
+      spawnFood();
+      drawBoard();
+    }
+    // 從空格中挑選食物，避免食物落在蛇身，並處理棋盤填滿的情況。
+    function spawnFood() {
+      const empty = [];
+      for (let y=0; y<GRID_SIZE; y++) for (let x=0; x<GRID_SIZE; x++) {
+        if (!snake.some(part => part.x === x && part.y === y)) empty.push({x,y});
+      }
+      food = empty.length ? empty[Math.floor(Math.random()*empty.length)] : null;
+    }
+    function drawBoard() {
+      if (!context) return;
+      const cell = canvas.width / GRID_SIZE;
+      context.fillStyle = '#080f19';
+      context.fillRect(0,0,canvas.width,canvas.height);
+      context.strokeStyle = '#1a323b';
+      context.beginPath();
+      for (let i=0; i<=GRID_SIZE; i++) {
+        context.moveTo(i*cell,0); context.lineTo(i*cell,canvas.height);
+        context.moveTo(0,i*cell); context.lineTo(canvas.width,i*cell);
+      }
+      context.stroke();
+      if (food) {
+        context.fillStyle = '#ff7cce';
+        context.fillRect(food.x*cell+6,food.y*cell+6,cell-12,cell-12);
+      }
+      snake.forEach((part,index) => {
+        context.fillStyle = index === 0 ? '#c1ffed' : '#61dcb6';
+        context.fillRect(part.x*cell+2,part.y*cell+2,cell-4,cell-4);
+      });
+    }
+    // 每個節拍最多接受一次轉向，阻止快速連按造成原地反向。
+    function changeDirection(next) {
+      if (state !== 'running' || pendingDirection !== direction) return;
+      if (vectors[next].x === -vectors[direction].x && vectors[next].y === -vectors[direction].y) return;
+      pendingDirection = next;
+      directionButtons.forEach(button => button.setAttribute('aria-pressed',String(button.dataset.direction === next)));
+      document.getElementById('input-status').textContent = `方向：向${names[next]}`;
+    }
+    function tick() {
+      if (state !== 'running') return;
+      direction = pendingDirection;
+      const head = {x:snake[0].x+vectors[direction].x, y:snake[0].y+vectors[direction].y};
+      const eating = food && head.x === food.x && head.y === food.y;
+      // 不吃食物時尾巴會離開，因此可走入當下的尾巴格。
+      const body = eating ? snake : snake.slice(0,-1);
+      if (head.x<0 || head.x>=GRID_SIZE || head.y<0 || head.y>=GRID_SIZE || body.some(part => part.x===head.x && part.y===head.y)) {
+        setState('over','遊戲結束',`本次得分 ${score}，按重玩再次挑戰`);
+        return;
+      }
+      snake.unshift(head);
+      if (eating) {
+        score += 10;
+        updateBest();
+        renderSpeed();
+        scheduleTicks();
+        document.getElementById('score').textContent = score;
+        spawnFood();
+      } else snake.pop();
+      drawBoard();
+      if (!food) setState('over','棋盤制霸！',`恭喜填滿棋盤！本次得分 ${score}`);
+    }
+    function runGame() {
+      stopTimer();
+      setState('running');
+      scheduleTicks();
+    }
+    startButton.addEventListener('click',runGame);
+    pauseButton.addEventListener('click',() => {
+      if (state === 'running') setState('paused','已暫停','按繼續，回到霓虹棋盤');
+      else if (state === 'paused') runGame();
+    });
+    restartButton.addEventListener('click',() => { resetGame(); runGame(); });
+    directionButtons.forEach(button => button.addEventListener('click',() => changeDirection(button.dataset.direction)));
+    document.addEventListener('keydown',event => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input, textarea, select, [contenteditable]')) return;
+      const next = keys[event.key] || keys[event.key.toLowerCase()];
+      if (!next || state !== 'running') return;
+      event.preventDefault();
+      if (!event.repeat) changeDirection(next);
+    });
+    document.addEventListener('visibilitychange',() => {
+      if (document.hidden && state === 'running') setState('paused','已自動暫停','你離開了分頁，按繼續再出發');
+    });
+    renderBest();
+    resetGame();
+    setState('ready','準備出發','按下開始，展開你的霓虹旅程');
+  </script>
+</body>
+</html>
